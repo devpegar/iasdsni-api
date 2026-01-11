@@ -6,14 +6,14 @@ require_once "../../middleware/auth.php";
 
 header("Content-Type: application/json");
 
-// Solo secretaria o admin
+// Acceso permitido
 require_role(["secretaria", "admin"]);
 
 $data = json_decode(file_get_contents("php://input"), true);
 
 $meeting_date = trim($data["meeting_date"] ?? "");
 $description  = trim($data["description"] ?? "");
-$attendance   = $data["attendance"] ?? []; // array de user_id
+$attendance   = $data["attendance"] ?? [];
 
 if (!$meeting_date) {
     echo json_encode([
@@ -26,30 +26,6 @@ if (!$meeting_date) {
 try {
     $pdo->beginTransaction();
 
-    /*
-     * VALIDACIÓN DE ASISTENTES
-     * Solo roles: miembro y secretaria
-     */
-    if (!empty($attendance)) {
-        $stmtCheck = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM users u
-            INNER JOIN roles r ON r.id = u.role_id
-            WHERE u.id = ?
-              AND r.name IN ('miembro', 'secretaria')
-        ");
-
-        foreach ($attendance as $user_id) {
-            $stmtCheck->execute([$user_id]);
-
-            if ($stmtCheck->fetchColumn() == 0) {
-                throw new Exception(
-                    "Uno o más usuarios no están habilitados para asistir a juntas"
-                );
-            }
-        }
-    }
-
     // Crear junta
     $stmt = $pdo->prepare("
         INSERT INTO boards (meeting_date, description)
@@ -59,15 +35,26 @@ try {
 
     $boardId = $pdo->lastInsertId();
 
-    // Registrar asistencia
+    /*
+     * Registrar asistencia completa
+     * attendance = [{ user_id, present }]
+     */
     if (!empty($attendance)) {
         $stmtA = $pdo->prepare("
             INSERT INTO board_attendance (board_id, user_id, present)
-            VALUES (?, ?, 1)
+            VALUES (?, ?, ?)
         ");
 
-        foreach ($attendance as $user_id) {
-            $stmtA->execute([$boardId, $user_id]);
+        foreach ($attendance as $item) {
+            if (!isset($item["user_id"])) {
+                throw new Exception("Formato de asistencia inválido");
+            }
+
+            $stmtA->execute([
+                $boardId,
+                (int)$item["user_id"],
+                !empty($item["present"]) ? 1 : 0
+            ]);
         }
     }
 
@@ -81,8 +68,10 @@ try {
 } catch (Exception $e) {
     $pdo->rollBack();
 
+    http_response_code(500);
     echo json_encode([
         "success" => false,
-        "message" => $e->getMessage()
+        "message" => "Error al crear la junta",
+        "error" => $e->getMessage()
     ]);
 }

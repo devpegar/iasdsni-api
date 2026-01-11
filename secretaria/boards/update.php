@@ -6,7 +6,7 @@ require_once "../../middleware/auth.php";
 
 header("Content-Type: application/json");
 
-// secretaria o admin
+// Acceso permitido
 require_role(["secretaria", "admin"]);
 
 $data = json_decode(file_get_contents("php://input"), true);
@@ -19,7 +19,7 @@ $attendance   = $data["attendance"] ?? [];
 if (!$board_id) {
     echo json_encode([
         "success" => false,
-        "message" => "El ID de la junta es obligatorio"
+        "message" => "ID de junta requerido"
     ]);
     exit;
 }
@@ -27,7 +27,7 @@ if (!$board_id) {
 try {
     $pdo->beginTransaction();
 
-    // Actualizar datos básicos
+    // Actualizar junta
     $stmt = $pdo->prepare("
         UPDATE boards
         SET meeting_date = ?, description = ?
@@ -35,19 +35,27 @@ try {
     ");
     $stmt->execute([$meeting_date, $description, $board_id]);
 
-    // Reset de asistencia
+    // Limpiar asistencia previa
     $pdo->prepare("DELETE FROM board_attendance WHERE board_id = ?")
         ->execute([$board_id]);
 
-    // Insertar nueva asistencia
+    // Registrar asistencia completa
     if (!empty($attendance)) {
         $stmtA = $pdo->prepare("
             INSERT INTO board_attendance (board_id, user_id, present)
-            VALUES (?, ?, 1)
+            VALUES (?, ?, ?)
         ");
 
-        foreach ($attendance as $user_id) {
-            $stmtA->execute([$board_id, $user_id]);
+        foreach ($attendance as $item) {
+            if (!isset($item["user_id"])) {
+                throw new Exception("Formato de asistencia inválido");
+            }
+
+            $stmtA->execute([
+                $board_id,
+                (int)$item["user_id"],
+                !empty($item["present"]) ? 1 : 0
+            ]);
         }
     }
 
@@ -60,6 +68,7 @@ try {
 } catch (Exception $e) {
     $pdo->rollBack();
 
+    http_response_code(500);
     echo json_encode([
         "success" => false,
         "message" => "Error al actualizar la junta",

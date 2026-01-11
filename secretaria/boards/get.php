@@ -35,15 +35,18 @@ if (!$board) {
     exit;
 }
 
-// Asistencia
+// Asistencia completa (elegibles + presentes)
 $stmtA = $pdo->prepare("
     SELECT 
-        u.id,
+        u.id AS user_id,
         u.username,
-        ba.present
-    FROM board_attendance ba
-    INNER JOIN users u ON u.id = ba.user_id
-    WHERE ba.board_id = ?
+        COALESCE(ba.present, 0) AS present
+    FROM users u
+    INNER JOIN roles r ON r.id = u.role_id
+    LEFT JOIN board_attendance ba 
+        ON ba.user_id = u.id 
+       AND ba.board_id = ?
+    WHERE r.name IN ('miembro', 'secretaria')
     ORDER BY u.username
 ");
 $stmtA->execute([$id]);

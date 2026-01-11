@@ -11,9 +11,9 @@ $allowed = require_role(["admin", "secretaria"]);
 
 // Obtener id + name
 $stmt = $pdo->query("
-    SELECT id, name 
+    SELECT id, name, description 
     FROM departments
-    ORDER BY name ASC
+    ORDER BY id ASC
 ");
 
 $departments = $stmt->fetchAll(PDO::FETCH_ASSOC);

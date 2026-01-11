@@ -17,14 +17,32 @@ $username = trim($data["username"] ?? "");
 $password = trim($data["password"] ?? "");
 $role_id = intval($data["role_id"] ?? 0);
 $departments = $data["departments"] ?? []; // array de int
+$has_access = intval($data["has_access"] ?? 0);
 
-if (!$id || !$email || !$username || !$role_id) {
+
+// Username y rol siempre obligatorios
+if (!$id || !$username || !$role_id) {
     echo json_encode([
         "success" => false,
         "message" => "Faltan datos obligatorios"
     ]);
     exit;
 }
+
+// Si tiene acceso, email obligatorio
+if ($has_access === 1 && !$email) {
+    echo json_encode([
+        "success" => false,
+        "message" => "El correo es obligatorio si el usuario tiene acceso"
+    ]);
+    exit;
+}
+
+// Si tiene acceso, validar email
+if ($has_access === 0) {
+    $email = null;
+}
+
 
 // Evitar duplicados de email
 $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ? AND id != ?");
@@ -46,8 +64,9 @@ try {
     $pdo->beginTransaction();
 
     // Construir SQL dinámico
-    $sql = "UPDATE users SET email = ?, username = ?, role_id = ?";
-    $params = [$email, $username, $role_id];
+    $sql = "UPDATE users SET email = ?, username = ?, role_id = ?, has_access = ?";
+    $params = [$email, $username, $role_id, $has_access];
+
 
     // Si envía contraseña, actualizarla
     if (!empty($password)) {

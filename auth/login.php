@@ -1,54 +1,91 @@
 <?php
 
-require_once "../utils/cors.php";
-require_once "../config/database.php";
-require_once "../utils/jwt.php";
+require_once __DIR__ . "/../utils/env.php";
+load_env();
+
+require_once __DIR__ . "/../utils/cors.php";
+require_once __DIR__ . "/../config/database.php";
+require_once __DIR__ . "/../utils/jwt.php";
+
+header("Content-Type: application/json; charset=UTF-8");
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-$username = $data["username"] ?? "";
+$username = trim($data["username"] ?? "");
 $password = $data["password"] ?? "";
 
-if (!$username || !$password) {
-    echo json_encode(["success" => false, "message" => "Usuario y contraseña requeridos"]);
+if ($username === "" || $password === "") {
+    http_response_code(400);
+    echo json_encode([
+        "success" => false,
+        "message" => "Credenciales inválidas"
+    ]);
     exit;
 }
 
-// Traemos role_id y el nombre del rol
 $stmt = $pdo->prepare("
-    SELECT 
-        users.*,
-        roles.name AS role_name
+    SELECT users.*, roles.name AS role_name
     FROM users
     LEFT JOIN roles ON roles.id = users.role_id
     WHERE users.username = ?
+    LIMIT 1
 ");
 $stmt->execute([$username]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if (!$user || !password_verify($password, $user["password"])) {
-    echo json_encode(["success" => false, "message" => "Credenciales incorrectas"]);
+if (
+    !$user ||
+    !password_verify($password, $user["password"]) ||
+    (int)$user["has_access"] !== 1
+) {
+    http_response_code(401);
+    echo json_encode([
+        "success" => false,
+        "message" => "Credenciales inválidas"
+    ]);
     exit;
 }
 
-// Crear JWT
-$secret = "TU_SECRETO_JWT_AQUI";
+$secret = env("JWT_SECRET");
+if (!$secret) {
+    http_response_code(500);
+    echo json_encode([
+        "success" => false,
+        "message" => "Error interno del servidor"
+    ]);
+    exit;
+}
 
 $token = create_jwt([
     "id"       => $user["id"],
     "username" => $user["username"],
-    "role_id"  => $user["role_id"],
-    "role"     => $user["role_name"]  // nombre del rol
+    "role"     => $user["role_name"],
+    "role_id"  => $user["role_id"]
 ], $secret);
+
+// Detectar entorno
+$isProduction = env("APP_ENV") === "production";
+
+// ENVIAR COOKIE
+setcookie(
+    "token",
+    $token,
+    [
+        "expires"  => time() + 86400, // 24h
+        "path"     => "/",
+        "domain"   => $isProduction ? "iasdsni.com.ar" : "",
+        "secure"   => $isProduction, // true solo en HTTPS
+        "httponly" => true,
+        "samesite" => "Lax"
+    ]
+);
 
 echo json_encode([
     "success" => true,
-    "message" => "Login correcto",
-    "token" => $token,
     "user" => [
         "id"       => $user["id"],
         "username" => $user["username"],
-        "role_id"  => $user["role_id"],
-        "role"     => $user["role_name"]
+        "role"     => $user["role_name"],
+        "role_id"  => $user["role_id"]
     ]
 ]);

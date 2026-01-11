@@ -1,4 +1,6 @@
 <?php
+require_once "../utils/env.php";
+load_env();
 
 require_once "../utils/cors.php";
 require_once "../config/database.php";

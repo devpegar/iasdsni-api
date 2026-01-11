@@ -26,15 +26,40 @@ if (!$meeting_date) {
 try {
     $pdo->beginTransaction();
 
+    /*
+     * VALIDACIÓN DE ASISTENTES
+     * Solo roles: miembro y secretaria
+     */
+    if (!empty($attendance)) {
+        $stmtCheck = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM users u
+            INNER JOIN roles r ON r.id = u.role_id
+            WHERE u.id = ?
+              AND r.name IN ('miembro', 'secretaria')
+        ");
+
+        foreach ($attendance as $user_id) {
+            $stmtCheck->execute([$user_id]);
+
+            if ($stmtCheck->fetchColumn() == 0) {
+                throw new Exception(
+                    "Uno o más usuarios no están habilitados para asistir a juntas"
+                );
+            }
+        }
+    }
+
     // Crear junta
     $stmt = $pdo->prepare("
         INSERT INTO boards (meeting_date, description)
         VALUES (?, ?)
     ");
     $stmt->execute([$meeting_date, $description]);
+
     $boardId = $pdo->lastInsertId();
 
-    // Registrar asistencia (opcional)
+    // Registrar asistencia
     if (!empty($attendance)) {
         $stmtA = $pdo->prepare("
             INSERT INTO board_attendance (board_id, user_id, present)
@@ -58,7 +83,6 @@ try {
 
     echo json_encode([
         "success" => false,
-        "message" => "Error al crear la junta",
-        "error" => $e->getMessage()
+        "message" => $e->getMessage()
     ]);
 }

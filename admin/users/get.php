@@ -18,7 +18,7 @@ if (!$id) {
 
 // Obtener datos del usuario
 $stmt = $pdo->prepare("
-    SELECT u.id, u.email, u.username, u.role_id, r.name AS role_name
+    SELECT u.id, u.email, u.username, u.has_access, u.role_id, r.name AS role_name
     FROM users u
     LEFT JOIN roles r ON r.id = u.role_id
     WHERE u.id = ?
@@ -31,17 +31,17 @@ if (!$user) {
     exit;
 }
 
-// Obtener departamentos
+// Obtener IDs de departamentos asociados
 $stmt = $pdo->prepare("
-    SELECT d.id, d.name
-    FROM user_departments ud
-    JOIN departments d ON d.id = ud.department_id
-    WHERE ud.user_id = ?
+    SELECT department_id
+    FROM user_departments
+    WHERE user_id = ?
 ");
 $stmt->execute([$id]);
-$departments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$departments_raw = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-$user["departments"] = $departments;
+// Asignar array de IDs al usuario
+$user["departments"] = array_map("intval", $departments_raw);
 
 echo json_encode([
     "success" => true,

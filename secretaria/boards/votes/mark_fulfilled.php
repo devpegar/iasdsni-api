@@ -1,6 +1,9 @@
 <?php
-require_once "../../config.php";
-require_once "../../auth/check.php";
+require_once "../../../utils/cors.php";
+require_once "../../../config/database.php";
+require_once "../../../middleware/auth.php";
+
+require_role(["secretaria", "admin"]);
 
 $data = json_decode(file_get_contents("php://input"), true);
 

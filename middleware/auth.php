@@ -1,67 +1,71 @@
 <?php
 
+require_once __DIR__ . "/../utils/env.php";
+load_env();
 require_once __DIR__ . "/../utils/jwt.php";
 
+/**
+ * Autenticación basada SOLO en cookie HttpOnly "token"
+ * Se asume que load_env() ya fue llamado en index.php
+ */
 function require_auth()
 {
-    $headers = getallheaders();
-    $authHeader = $headers["Authorization"] ?? "";
+    header("Content-Type: application/json; charset=UTF-8");
 
-    if (!$authHeader) {
+    // Obtener cookie
+    $token = $_COOKIE["token"] ?? "";
+
+    if (!is_string($token) || trim($token) === "") {
         http_response_code(401);
         echo json_encode([
             "success" => false,
-            "message" => "No autorizado: falta Authorization header"
+            "message" => "No autorizado"
         ]);
         exit;
     }
 
-    // Dividir de forma segura
-    $parts = explode(" ", $authHeader);
+    // Obtener JWT_SECRET desde .env
+    $secret = env("JWT_SECRET");
 
-    if (count($parts) !== 2) {
-        http_response_code(401);
+    if (!$secret) {
+        http_response_code(500);
         echo json_encode([
             "success" => false,
-            "message" => "Token mal formado"
+            "message" => "Error interno del servidor"
         ]);
         exit;
     }
 
-    list($type, $token) = $parts;
-
-    if (strtolower($type) !== "bearer") {
-        http_response_code(401);
-        echo json_encode([
-            "success" => false,
-            "message" => "Tipo de token inválido (debe ser Bearer)"
-        ]);
-        exit;
-    }
-
-    $secret = "TU_SECRETO_JWT_AQUI";
+    // Validar token
     $payload = validate_jwt($token, $secret);
 
-    if (!$payload) {
+    if (!$payload || !isset($payload["role"])) {
         http_response_code(401);
         echo json_encode([
             "success" => false,
-            "message" => "Token expirado o inválido"
+            "message" => "No autorizado"
         ]);
         exit;
     }
 
-    return $payload; // contiene id, username, role
+    return $payload; // id, username, role
 }
 
-// NUEVO: Validar rol requerido
-function require_role($roles = [])
+/**
+ * Requiere que el usuario tenga uno de los roles permitidos
+ */
+function require_role(array $roles)
 {
-    $user = require_auth(); // ya devuelve info del usuario
-    if (!in_array($user['role'], $roles)) {
+    $user = require_auth();
+
+    if (!in_array($user["role"], $roles, true)) {
         http_response_code(403);
-        echo json_encode(["success" => false, "message" => "No autorizado"]);
-        exit();
+        echo json_encode([
+            "success" => false,
+            "message" => "Acceso denegado"
+        ]);
+        exit;
     }
+
     return $user;
 }

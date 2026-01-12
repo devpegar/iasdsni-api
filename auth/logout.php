@@ -7,17 +7,21 @@ require_once "../utils/cors.php";
 
 $isProduction = env("APP_ENV") === "production";
 
-setcookie(
-    "token",
-    "",
-    [
-        "expires"  => time() - 3600,
-        "path"     => "/",
-        "domain"   => $isProduction ? "iasdsni.com.ar" : "",
-        "secure"   => $isProduction,
-        "httponly" => true,
-        "samesite" => "Lax"
-    ]
-);
+$cookieOptions = [
+    "expires"  => time() + 86400,
+    "path"     => "/",
+    "httponly" => true,
+    "samesite" => "Lax",
+];
+
+if ($isProduction) {
+    $cookieOptions["domain"] = "iasdsni.com.ar";
+    $cookieOptions["secure"] = true;
+} else {
+    // LOCAL
+    $cookieOptions["secure"] = false;
+}
+
+setcookie("token", "", $cookieOptions);
 
 echo json_encode(["success" => true]);

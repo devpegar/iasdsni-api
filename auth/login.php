@@ -66,19 +66,23 @@ $token = create_jwt([
 // Detectar entorno
 $isProduction = env("APP_ENV") === "production";
 
-// ENVIAR COOKIE
-setcookie(
-    "token",
-    $token,
-    [
-        "expires"  => time() + 86400, // 24h
-        "path"     => "/",
-        "domain"   => $isProduction ? "iasdsni.com.ar" : "",
-        "secure"   => $isProduction, // true solo en HTTPS
-        "httponly" => true,
-        "samesite" => "Lax"
-    ]
-);
+$cookieOptions = [
+    "expires"  => time() + 86400,
+    "path"     => "/",
+    "httponly" => true,
+    "samesite" => "Lax",
+];
+
+if ($isProduction) {
+    $cookieOptions["domain"] = "iasdsni.com.ar";
+    $cookieOptions["secure"] = true;
+} else {
+    // LOCAL
+    $cookieOptions["secure"] = false;
+}
+
+setcookie("token", $token, $cookieOptions);
+
 
 echo json_encode([
     "success" => true,

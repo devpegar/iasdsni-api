@@ -46,7 +46,7 @@ $stmtA = $pdo->prepare("
     LEFT JOIN board_attendance ba 
         ON ba.user_id = u.id 
        AND ba.board_id = ?
-    WHERE r.name IN ('miembro', 'secretaria')
+    WHERE r.name IN ('miembro', 'secretaria', 'pastor', 'ancianos')
     ORDER BY u.username
 ");
 $stmtA->execute([$id]);

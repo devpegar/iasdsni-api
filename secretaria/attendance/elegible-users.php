@@ -16,7 +16,7 @@ $stmt = $pdo->prepare("
         r.name AS role
     FROM users u
     INNER JOIN roles r ON r.id = u.role_id
-    WHERE r.name IN ('miembro', 'secretaria','pastor','ancianos)
+    WHERE r.name IN ('miembro', 'secretaria', 'pastor', 'ancianos')
     ORDER BY u.username ASC
 ");
 

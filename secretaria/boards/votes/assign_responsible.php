@@ -29,7 +29,7 @@ if ($user_id) {
         FROM users u
         INNER JOIN roles r ON r.id = u.role_id
         WHERE u.id = ?
-        AND r.name IN ('secretaria', 'miembro')
+        AND r.name IN ('secretaria', 'miembro', 'pastor', 'ancianos')
     ");
     $stmt->execute([$user_id]);
 

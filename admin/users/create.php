@@ -16,6 +16,7 @@ $password    = trim($data["password"] ?? "");
 $roleId      = intval($data["role_id"] ?? 0);
 $departments = $data["departments"] ?? [];
 $has_access  = intval($data["has_access"] ?? 0);
+$active      = isset($data["active"]) ? intval($data["active"]) : 1;
 
 if (!$username || !$roleId) {
     echo json_encode(["success" => false, "message" => "Username y rol son obligatorios"]);
@@ -55,7 +56,6 @@ if ($stmt->fetch()) {
     exit;
 }
 
-// Password SOLO si corresponde
 $hashedPassword = $has_access ? password_hash($password, PASSWORD_DEFAULT) : null;
 $emailValue     = $has_access ? $email : null;
 
@@ -63,8 +63,8 @@ try {
     $pdo->beginTransaction();
 
     $stmt = $pdo->prepare("
-        INSERT INTO users (email, username, password, role_id, has_access)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO users (email, username, password, role_id, has_access, active)
+        VALUES (?, ?, ?, ?, ?, ?)
     ");
 
     $stmt->execute([
@@ -72,7 +72,8 @@ try {
         $username,
         $hashedPassword,
         $roleId,
-        $has_access
+        $has_access,
+        $active
     ]);
 
     $userId = $pdo->lastInsertId();
@@ -90,7 +91,10 @@ try {
 
     $pdo->commit();
 
-    echo json_encode(["success" => true, "message" => "Usuario creado correctamente"]);
+    echo json_encode([
+        "success" => true,
+        "message" => "Usuario creado correctamente"
+    ]);
 } catch (Exception $e) {
     $pdo->rollBack();
     echo json_encode([

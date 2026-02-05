@@ -18,7 +18,7 @@ if (!$id) {
 
 // Obtener datos del usuario
 $stmt = $pdo->prepare("
-    SELECT u.id, u.email, u.username, u.has_access, u.role_id, r.name AS role_name
+    SELECT u.id, u.email, u.username, u.has_access, u.active, u.role_id, r.name AS role_name
     FROM users u
     LEFT JOIN roles r ON r.id = u.role_id
     WHERE u.id = ?

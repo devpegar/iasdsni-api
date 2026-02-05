@@ -27,7 +27,9 @@ if (!$board_id) {
 try {
     $pdo->beginTransaction();
 
-    // Actualizar junta
+    /* ==========================
+       ACTUALIZAR JUNTA
+    ========================== */
     $stmt = $pdo->prepare("
         UPDATE boards
         SET meeting_date = ?, description = ?
@@ -35,26 +37,61 @@ try {
     ");
     $stmt->execute([$meeting_date, $description, $board_id]);
 
-    // Limpiar asistencia previa
+    /* ==========================
+       OBTENER ASISTENCIA PREVIA
+    ========================== */
+    $stmtPrev = $pdo->prepare("
+        SELECT user_id, present
+        FROM board_attendance
+        WHERE board_id = ?
+    ");
+    $stmtPrev->execute([$board_id]);
+    $previousAttendance = $stmtPrev->fetchAll(PDO::FETCH_ASSOC);
+
+    /* ==========================
+       INDEXAR ASISTENCIA ENTRANTE
+    ========================== */
+    $incomingAttendance = [];
+
+    foreach ($attendance as $item) {
+        if (!isset($item["user_id"])) {
+            throw new Exception("Formato de asistencia inválido");
+        }
+
+        $incomingAttendance[(int)$item["user_id"]] =
+            !empty($item["present"]) ? 1 : 0;
+    }
+
+    /* ==========================
+       FUSIONAR (PRESERVAR HISTÓRICOS)
+    ========================== */
+    $finalAttendance = $incomingAttendance;
+
+    foreach ($previousAttendance as $old) {
+        $uid = (int)$old["user_id"];
+
+        if (!array_key_exists($uid, $finalAttendance)) {
+            $finalAttendance[$uid] = (int)$old["present"];
+        }
+    }
+
+    /* ==========================
+       REEMPLAZAR ASISTENCIA
+    ========================== */
     $pdo->prepare("DELETE FROM board_attendance WHERE board_id = ?")
         ->execute([$board_id]);
 
-    // Registrar asistencia completa
-    if (!empty($attendance)) {
+    if (!empty($finalAttendance)) {
         $stmtA = $pdo->prepare("
             INSERT INTO board_attendance (board_id, user_id, present)
             VALUES (?, ?, ?)
         ");
 
-        foreach ($attendance as $item) {
-            if (!isset($item["user_id"])) {
-                throw new Exception("Formato de asistencia inválido");
-            }
-
+        foreach ($finalAttendance as $userId => $present) {
             $stmtA->execute([
                 $board_id,
-                (int)$item["user_id"],
-                !empty($item["present"]) ? 1 : 0
+                $userId,
+                $present
             ]);
         }
     }

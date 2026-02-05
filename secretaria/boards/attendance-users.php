@@ -6,17 +6,18 @@ require_once "../../middleware/auth.php";
 
 header("Content-Type: application/json");
 
-// Acceso permitido
+// Solo secretaria / admin
 require_role(["admin", "secretaria"]);
 
 $stmt = $pdo->prepare("
     SELECT 
         u.id,
-        u.username,
-        r.name AS role
+        u.username
     FROM users u
     INNER JOIN roles r ON r.id = u.role_id
-    WHERE r.name IN ('miembro', 'secretaria', 'pastor', 'ancianos')
+    WHERE
+        u.active = 1
+        AND r.name IN ('miembro', 'secretaria', 'pastor', 'ancianos')
     ORDER BY u.username ASC
 ");
 

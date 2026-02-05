@@ -17,6 +17,7 @@ $stmt = $pdo->query("
         u.username,
         u.role_id,
         u.has_access,
+        u.active,
         r.name AS role,
         GROUP_CONCAT(d.name SEPARATOR ', ') AS departments_names,
         GROUP_CONCAT(d.id SEPARATOR ',') AS departments_ids
@@ -36,6 +37,7 @@ $users = array_map(function ($u) {
         "email" => $u["email"],
         "username" => $u["username"],
         "has_access" => intval($u["has_access"]),
+        "active" => intval($u["active"]),
         "role" => $u["role"],
         "role_id" => intval($u["role_id"]),
         "departments" => $u["departments_ids"]

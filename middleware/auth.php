@@ -16,6 +16,7 @@ function require_auth()
     $token = $_COOKIE["token"] ?? "";
 
     if (!is_string($token) || trim($token) === "") {
+        error_log("[middleware/auth] token cookie missing");
         http_response_code(401);
         echo json_encode([
             "success" => false,
@@ -28,6 +29,7 @@ function require_auth()
     $secret = env("JWT_SECRET");
 
     if (!$secret) {
+        error_log("[middleware/auth] JWT_SECRET missing");
         http_response_code(500);
         echo json_encode([
             "success" => false,
@@ -37,9 +39,11 @@ function require_auth()
     }
 
     // Validar token
+    error_log("[middleware/auth] token received len=" . strlen($token) . " secret_len=" . strlen($secret) . " token_sha256_12=" . substr(hash('sha256', $token), 0, 12));
     $payload = validate_jwt($token, $secret);
 
     if (!$payload || !isset($payload["role"])) {
+        error_log("[middleware/auth] token rejected");
         http_response_code(401);
         echo json_encode([
             "success" => false,

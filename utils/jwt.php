@@ -7,7 +7,12 @@ function base64url_encode($data)
 
 function base64url_decode($data)
 {
-    return base64_decode(strtr($data, '-_', '+/'));
+    $remainder = strlen($data) % 4;
+    if ($remainder) {
+        $data .= str_repeat('=', 4 - $remainder);
+    }
+
+    return base64_decode(strtr($data, '-_', '+/'), true);
 }
 
 function create_jwt($payload, $secret, $expiration_minutes = 120)
@@ -25,11 +30,19 @@ function create_jwt($payload, $secret, $expiration_minutes = 120)
     return "$header_enc.$payload_enc.$signature_enc";
 }
 
+function jwt_debug_log($message, array $context = [])
+{
+    error_log('[jwt] ' . $message . ($context ? ' ' . json_encode($context) : ''));
+}
+
 function validate_jwt($jwt, $secret)
 {
     $parts = explode('.', $jwt);
 
-    if (count($parts) !== 3) return false;
+    if (count($parts) !== 3) {
+        jwt_debug_log('invalid token parts', ['parts' => count($parts)]);
+        return false;
+    }
 
     list($header_enc, $payload_enc, $signature_enc) = $parts;
 
@@ -37,11 +50,30 @@ function validate_jwt($jwt, $secret)
         hash_hmac("sha256", "$header_enc.$payload_enc", $secret, true)
     );
 
-    if (!hash_equals($signature_check, $signature_enc)) return false;
+    if (!hash_equals($signature_check, $signature_enc)) {
+        jwt_debug_log('signature mismatch', [
+            'secret_len' => is_string($secret) ? strlen($secret) : 0,
+            'token_sha256_12' => substr(hash('sha256', $jwt), 0, 12)
+        ]);
+        return false;
+    }
 
     $payload = json_decode(base64url_decode($payload_enc), true);
 
-    if ($payload["exp"] < time()) return false;
+    if (!is_array($payload)) {
+        jwt_debug_log('payload decode failed', ['json_error' => json_last_error_msg()]);
+        return false;
+    }
+
+    if (!isset($payload["exp"]) || !is_numeric($payload["exp"])) {
+        jwt_debug_log('missing exp claim');
+        return false;
+    }
+
+    if ((int)$payload["exp"] < time()) {
+        jwt_debug_log('token expired', ['exp' => (int)$payload["exp"], 'now' => time()]);
+        return false;
+    }
 
     return $payload;
 }

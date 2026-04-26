@@ -48,6 +48,7 @@ if (
 
 $secret = env("JWT_SECRET");
 if (!$secret) {
+    error_log("[auth/login] JWT_SECRET missing");
     http_response_code(500);
     echo json_encode([
         "success" => false,
@@ -56,28 +57,30 @@ if (!$secret) {
     exit;
 }
 
+$tokenMinutes = 120;
 $token = create_jwt([
     "id"       => $user["id"],
     "username" => $user["username"],
     "role"     => $user["role_name"],
     "role_id"  => $user["role_id"]
-], $secret);
+], $secret, $tokenMinutes);
+
+error_log("[auth/login] JWT created user_id={$user["id"]} role={$user["role_name"]} secret_len=" . strlen($secret) . " token_sha256_12=" . substr(hash('sha256', $token), 0, 12));
 
 // Detectar entorno
 $isProduction = env("APP_ENV") === "production";
 
 $cookieOptions = [
-    "expires"  => time() + 86400,
+    "expires"  => time() + ($tokenMinutes * 60),
     "path"     => "/",
     "httponly" => true,
     "samesite" => "Lax",
 ];
 
 if ($isProduction) {
-    $cookieOptions["domain"] = "iasdsni.com.ar";
     $cookieOptions["secure"] = true;
+    $cookieOptions["domain"] = "iasdsni.com.ar";
 } else {
-    // LOCAL
     $cookieOptions["secure"] = false;
 }
 

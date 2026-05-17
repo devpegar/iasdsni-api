@@ -2,17 +2,12 @@
 
 require_once __DIR__ . "/../../utils/cors.php";
 require_once __DIR__ . "/../../utils/env.php";
+require_once __DIR__ . "/../../utils/http.php";
 require_once __DIR__ . "/../../config/database.php";
 
 load_env();
 
-header("Content-Type: application/json; charset=utf-8");
-
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    http_response_code(405);
-    echo json_encode(["error" => "Método no permitido"]);
-    exit;
-}
+require_method("GET");
 
 try {
     $stmt = $pdo->prepare("
@@ -41,7 +36,7 @@ try {
             } elseif (str_starts_with($buttonLink, "/uploads/")) {
                 $buttonUrl = $baseUrl . $buttonLink;
             } else {
-                $buttonUrl = $buttonLink; // rutas internas públicas
+                $buttonUrl = $buttonLink;
             }
         } else {
             $buttonUrl = null;
@@ -59,9 +54,6 @@ try {
 
     echo json_encode($slides);
 } catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode([
-        "error" => "Error al obtener slides",
-        "detail" => $e->getMessage()
-    ]);
+    error_log($e->getMessage());
+    json_error("Error al obtener slides");
 }

@@ -32,7 +32,7 @@ if (!$id) {
 
 try {
     $stmt = $pdo->prepare("
-        SELECT id, slug, title, meta_description, content, is_active
+        SELECT id, slug, title, page_type, meta_description, excerpt, featured_image, content, published_at, is_active
         FROM pages
         WHERE id = :id
         LIMIT 1
@@ -50,18 +50,35 @@ try {
     $title = array_key_exists("title", $data)
         ? trim($data["title"])
         : $currentPage["title"];
+    $pageType = array_key_exists("page_type", $data)
+        ? trim((string)$data["page_type"])
+        : $currentPage["page_type"];
     $metaDescription = array_key_exists("meta_description", $data)
         ? trim((string)$data["meta_description"])
         : $currentPage["meta_description"];
+    $excerpt = array_key_exists("excerpt", $data)
+        ? trim((string)$data["excerpt"])
+        : $currentPage["excerpt"];
+    $featuredImage = array_key_exists("featured_image", $data)
+        ? trim((string)$data["featured_image"])
+        : $currentPage["featured_image"];
     $content = array_key_exists("content", $data)
         ? ($data["content"] !== null ? (string)$data["content"] : null)
         : $currentPage["content"];
+    $publishedAt = array_key_exists("published_at", $data)
+        ? trim((string)$data["published_at"])
+        : $currentPage["published_at"];
     $isActive = array_key_exists("is_active", $data)
         ? ((int)$data["is_active"] ? 1 : 0)
         : (int)$currentPage["is_active"];
+    $allowedPageTypes = ["page", "news", "announcement", "event"];
 
     if ($slug === "" || $title === "") {
         json_error("Slug y título son obligatorios", 422);
+    }
+
+    if (!in_array($pageType, $allowedPageTypes, true)) {
+        json_error("Tipo de contenido inválido", 422);
     }
 
     $stmt = $pdo->prepare("
@@ -83,8 +100,12 @@ try {
         UPDATE pages
         SET slug = :slug,
             title = :title,
+            page_type = :page_type,
             meta_description = :meta_description,
+            excerpt = :excerpt,
+            featured_image = :featured_image,
             content = :content,
+            published_at = :published_at,
             is_active = :is_active
         WHERE id = :id
     ");
@@ -92,8 +113,12 @@ try {
     $stmt->execute([
         "slug" => $slug,
         "title" => $title,
+        "page_type" => $pageType,
         "meta_description" => $metaDescription !== "" ? $metaDescription : null,
+        "excerpt" => $excerpt !== "" ? $excerpt : null,
+        "featured_image" => $featuredImage !== "" ? $featuredImage : null,
         "content" => $content,
+        "published_at" => $publishedAt !== "" ? $publishedAt : null,
         "is_active" => $isActive,
         "id" => $id,
     ]);

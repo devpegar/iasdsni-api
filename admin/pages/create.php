@@ -28,10 +28,19 @@ $slug = normalize_page_slug($data["slug"] ?? "");
 $title = trim($data["title"] ?? "");
 $metaDescription = trim($data["meta_description"] ?? "");
 $content = $data["content"] ?? null;
+$pageType = trim($data["page_type"] ?? "page");
+$excerpt = trim($data["excerpt"] ?? "");
+$featuredImage = trim($data["featured_image"] ?? "");
+$publishedAt = trim($data["published_at"] ?? "");
+$allowedPageTypes = ["page", "news", "announcement", "event"];
 $isActive = isset($data["is_active"]) && (int)$data["is_active"] === 0 ? 0 : 1;
 
 if ($slug === "" || $title === "") {
     json_error("Slug y título son obligatorios", 422);
+}
+
+if (!in_array($pageType, $allowedPageTypes, true)) {
+    json_error("Tipo de contenido inválido", 422);
 }
 
 try {
@@ -43,16 +52,26 @@ try {
     }
 
     $stmt = $pdo->prepare("
-        INSERT INTO pages (slug, title, meta_description, content, is_active)
-        VALUES (:slug, :title, :meta_description, :content, :is_active)
+        INSERT INTO pages (
+            slug, title, page_type, meta_description, excerpt, featured_image,
+            content, is_active, published_at
+        )
+        VALUES (
+            :slug, :title, :page_type, :meta_description, :excerpt, :featured_image,
+            :content, :is_active, :published_at
+        )
     ");
 
     $stmt->execute([
         "slug" => $slug,
         "title" => $title,
+        "page_type" => $pageType,
         "meta_description" => $metaDescription !== "" ? $metaDescription : null,
+        "excerpt" => $excerpt !== "" ? $excerpt : null,
+        "featured_image" => $featuredImage !== "" ? $featuredImage : null,
         "content" => $content !== null ? (string)$content : null,
         "is_active" => $isActive,
+        "published_at" => $publishedAt !== "" ? $publishedAt : null,
     ]);
 
     json_success([

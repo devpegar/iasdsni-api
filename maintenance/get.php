@@ -1,22 +1,21 @@
 <?php
-require_once "../utils/env.php";
+require_once __DIR__ . "/../utils/env.php";
 load_env();
 
-require_once "../utils/cors.php";
-require_once "../config/database.php";
+require_once __DIR__ . "/../utils/cors.php";
+require_once __DIR__ . "/../utils/http.php";
+require_once __DIR__ . "/../config/database.php";
 
-header("Content-Type: application/json; charset=UTF-8");
+require_method("GET");
 
-// Preflight
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
+try {
+    $stmt = $pdo->query("SELECT maintenance FROM settings WHERE id = 1");
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    json_success([
+        "maintenance" => (bool)($row["maintenance"] ?? false),
+    ]);
+} catch (PDOException $e) {
+    error_log($e->getMessage());
+    json_error("Error al obtener configuración");
 }
-
-$stmt = $pdo->query("SELECT maintenance FROM settings WHERE id = 1");
-$row = $stmt->fetch(PDO::FETCH_ASSOC);
-
-echo json_encode([
-    "success" => true,
-    "maintenance" => (bool)$row["maintenance"]
-]);

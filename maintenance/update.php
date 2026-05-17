@@ -1,40 +1,33 @@
 <?php
+require_once __DIR__ . "/../utils/cors.php";
+require_once __DIR__ . "/../utils/http.php";
+require_once __DIR__ . "/../config/database.php";
+require_once __DIR__ . "/../middleware/auth.php";
 
-require_once "../utils/cors.php";
-require_once "../config/database.php";
-require_once "../middleware/auth.php";
-
-header("Content-Type: application/json; charset=UTF-8");
-
-// Preflight
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
+require_method("POST");
 
 $user = require_auth();
 
-// Solo admin
 if ($user["role"] !== "admin") {
-    http_response_code(403);
-    echo json_encode(["success" => false, "error" => "No autorizado"]);
-    exit();
+    json_error("No autorizado", 403);
 }
 
-$data = json_decode(file_get_contents("php://input"), true);
+$data = read_json_body();
 
 if (!isset($data["maintenance"]) || !is_bool($data["maintenance"])) {
-    echo json_encode(["success" => false, "error" => "Debe enviar maintenance=true|false"]);
-    exit();
+    json_error("Debe enviar maintenance=true|false", 422);
 }
 
-$value = $data["maintenance"] ? 1 : 0;
+try {
+    $value = $data["maintenance"] ? 1 : 0;
 
-$stmt = $pdo->prepare("UPDATE settings SET maintenance = ? WHERE id = 1");
-$stmt->execute([$value]);
+    $stmt = $pdo->prepare("UPDATE settings SET maintenance = ? WHERE id = 1");
+    $stmt->execute([$value]);
 
-echo json_encode([
-    "success" => true,
-    "message" => "Estado actualizado",
-    "maintenance" => $data["maintenance"]
-]);
+    json_success([
+        "maintenance" => $data["maintenance"],
+    ], "Estado actualizado");
+} catch (PDOException $e) {
+    error_log($e->getMessage());
+    json_error("Error al actualizar configuración");
+}

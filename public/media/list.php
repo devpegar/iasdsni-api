@@ -30,10 +30,28 @@ function public_media_column_exists($pdo, $table, $column)
 
 try {
     $hasFolders = public_media_table_exists($pdo, "media_folders") && public_media_column_exists($pdo, "media_files", "folder_id");
+    $optionalColumns = [
+        "original_url",
+        "optimized_url",
+        "thumbnail_url",
+        "width",
+        "height",
+        "optimized_width",
+        "optimized_height",
+        "optimization_status",
+    ];
+    $availableOptionalColumns = array_filter($optionalColumns, function ($column) use ($pdo) {
+        return public_media_column_exists($pdo, "media_files", $column);
+    });
+    $optionalSelect = "";
+
+    if (count($availableOptionalColumns) > 0) {
+        $optionalSelect = ", mf." . implode(", mf.", $availableOptionalColumns);
+    }
 
     if ($hasFolders) {
         $stmt = $pdo->query("
-            SELECT mf.id, mf.folder_id, mf.public_url, mf.alt_text,
+            SELECT mf.id, mf.folder_id, mf.public_url, mf.alt_text{$optionalSelect},
                    f.name AS folder_name, f.slug AS folder_slug
             FROM media_files mf
             LEFT JOIN media_folders f ON f.id = mf.folder_id
@@ -41,8 +59,14 @@ try {
             ORDER BY mf.created_at DESC, mf.id DESC
         ");
     } else {
+        $optionalSelectNoAlias = "";
+
+        if (count($availableOptionalColumns) > 0) {
+            $optionalSelectNoAlias = ", " . implode(", ", $availableOptionalColumns);
+        }
+
         $stmt = $pdo->query("
-            SELECT id, public_url, alt_text
+            SELECT id, public_url, alt_text{$optionalSelectNoAlias}
             FROM media_files
             WHERE is_active = 1
             ORDER BY created_at DESC, id DESC
@@ -50,12 +74,22 @@ try {
     }
 
     $files = array_map(function ($file) {
+        $publicUrl = $file["optimized_url"] ?? $file["public_url"];
+
         return [
             "id" => (int)$file["id"],
             "folder_id" => isset($file["folder_id"]) ? (int)$file["folder_id"] : null,
             "folder_name" => $file["folder_name"] ?? null,
             "folder_slug" => $file["folder_slug"] ?? null,
-            "public_url" => $file["public_url"],
+            "public_url" => $publicUrl,
+            "original_url" => $file["original_url"] ?? null,
+            "optimized_url" => $file["optimized_url"] ?? null,
+            "thumbnail_url" => $file["thumbnail_url"] ?? null,
+            "width" => isset($file["width"]) ? (int)$file["width"] : null,
+            "height" => isset($file["height"]) ? (int)$file["height"] : null,
+            "optimized_width" => isset($file["optimized_width"]) ? (int)$file["optimized_width"] : null,
+            "optimized_height" => isset($file["optimized_height"]) ? (int)$file["optimized_height"] : null,
+            "optimization_status" => $file["optimization_status"] ?? "legacy",
             "alt_text" => $file["alt_text"] ?? "",
         ];
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));

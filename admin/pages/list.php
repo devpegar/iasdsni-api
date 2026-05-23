@@ -10,11 +10,20 @@ require_role(["admin"]);
 
 $q = trim($_GET["q"] ?? "");
 
+function pages_have_seo_columns($pdo)
+{
+    $stmt = $pdo->query("SHOW COLUMNS FROM pages LIKE 'seo_title'");
+    return (bool)$stmt->fetch(PDO::FETCH_ASSOC);
+}
+
 try {
+    $hasSeoColumns = pages_have_seo_columns($pdo);
+    $seoSelect = $hasSeoColumns ? ", seo_title, og_image, canonical_url, noindex" : "";
+
     if ($q !== "") {
         $stmt = $pdo->prepare("
             SELECT id, slug, title, page_type, meta_description, excerpt, featured_image, content,
-                   published_at, is_active, created_at, updated_at
+                   published_at, is_active, created_at, updated_at{$seoSelect}
             FROM pages
             WHERE slug LIKE :q OR title LIKE :q
             ORDER BY updated_at DESC
@@ -23,7 +32,7 @@ try {
     } else {
         $stmt = $pdo->query("
             SELECT id, slug, title, page_type, meta_description, excerpt, featured_image, content,
-                   published_at, is_active, created_at, updated_at
+                   published_at, is_active, created_at, updated_at{$seoSelect}
             FROM pages
             ORDER BY updated_at DESC
         ");
@@ -43,6 +52,10 @@ try {
             "is_active" => (int)$page["is_active"],
             "created_at" => $page["created_at"],
             "updated_at" => $page["updated_at"],
+            "seo_title" => $page["seo_title"] ?? "",
+            "og_image" => $page["og_image"] ?? "",
+            "canonical_url" => $page["canonical_url"] ?? "",
+            "noindex" => (int)($page["noindex"] ?? 0),
         ];
     }, $stmt->fetchAll(PDO::FETCH_ASSOC));
 

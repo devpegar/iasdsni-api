@@ -9,6 +9,34 @@ load_env();
 
 require_method("GET");
 
+function resolve_hero_url($value, $baseUrl)
+{
+    $value = trim((string)$value);
+
+    if ($value === "") {
+        return "";
+    }
+
+    if (
+        str_starts_with($value, "http://") ||
+        str_starts_with($value, "https://") ||
+        str_starts_with($value, "data:") ||
+        str_starts_with($value, "blob:")
+    ) {
+        return $value;
+    }
+
+    if (str_starts_with($value, "/uploads/")) {
+        return $baseUrl . $value;
+    }
+
+    if (str_starts_with($value, "uploads/")) {
+        return $baseUrl . "/" . $value;
+    }
+
+    return $value;
+}
+
 try {
     $stmt = $pdo->prepare("
         SELECT id, title, description, button_text, button_link, image_path
@@ -48,7 +76,8 @@ try {
             "description" => $row["description"],
             "button_text" => $row["button_text"],
             "button_url" => $buttonUrl,
-            "image_url" => $baseUrl . $row["image_path"]
+            "image_path" => $row["image_path"],
+            "image_url" => resolve_hero_url($row["image_path"], $baseUrl)
         ];
     }
 

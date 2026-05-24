@@ -1,6 +1,7 @@
 <?php
 
 require_once "../../utils/cors.php";
+require_once "../../utils/http.php";
 require_once "../../config/database.php";
 require_once "../../middleware/auth.php";
 
@@ -8,40 +9,26 @@ header("Content-Type: application/json");
 
 require_role(["admin"]);
 
-$data = json_decode(file_get_contents("php://input"), true);
+$data = read_json_body();
 $id = intval($data["id"] ?? $_GET["id"] ?? 0);
 
 if (!$id) {
-    echo json_encode([
-        "success" => false,
-        "message" => "ID invalido"
-    ]);
-    exit;
+    json_error("ID inválido", 422);
 }
 
 $stmt = $pdo->prepare("SELECT id FROM daily_verses WHERE id = ?");
 $stmt->execute([$id]);
 
 if ($stmt->rowCount() === 0) {
-    echo json_encode([
-        "success" => false,
-        "message" => "El verso no existe"
-    ]);
-    exit;
+    json_error("El verso no existe", 404);
 }
 
 try {
     $stmt = $pdo->prepare("DELETE FROM daily_verses WHERE id = ?");
     $stmt->execute([$id]);
 
-    echo json_encode([
-        "success" => true,
-        "message" => "Verso eliminado correctamente"
-    ]);
+    json_success(["id" => $id], "Verso eliminado correctamente");
 } catch (Exception $e) {
-    echo json_encode([
-        "success" => false,
-        "message" => "Error al eliminar verso",
-        "error" => $e->getMessage()
-    ]);
+    error_log($e->getMessage());
+    json_error("Error al eliminar verso");
 }

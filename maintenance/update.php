@@ -1,7 +1,10 @@
 <?php
+require_once __DIR__ . "/../utils/env.php";
+load_env();
+
 require_once __DIR__ . "/../utils/cors.php";
 require_once __DIR__ . "/../utils/http.php";
-require_once __DIR__ . "/../config/database.php";
+require_once __DIR__ . "/../utils/maintenance.php";
 require_once __DIR__ . "/../middleware/auth.php";
 
 require_method("POST");
@@ -19,15 +22,28 @@ if (!isset($data["maintenance"]) || !is_bool($data["maintenance"])) {
 }
 
 try {
-    $value = $data["maintenance"] ? 1 : 0;
+    $flagUpdated = $data["maintenance"]
+        ? maintenance_enable_flag()
+        : maintenance_disable_flag();
 
-    $stmt = $pdo->prepare("UPDATE settings SET maintenance = ? WHERE id = 1");
-    $stmt->execute([$value]);
+    if (!$flagUpdated) {
+        json_error(
+            $data["maintenance"]
+                ? "No se pudo crear el archivo de mantenimiento"
+                : "No se pudo eliminar el archivo de mantenimiento",
+            500
+        );
+    }
+
+    $dbUpdated = maintenance_update_db_state($data["maintenance"]);
 
     json_success([
-        "maintenance" => $data["maintenance"],
+        "maintenance" => maintenance_flag_exists(),
+        "db_maintenance" => $data["maintenance"],
+        "db_updated" => $dbUpdated,
+        "source" => "flag",
     ], "Estado actualizado");
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     error_log($e->getMessage());
     json_error("Error al actualizar configuración");
 }
